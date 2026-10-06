@@ -1,48 +1,113 @@
-import { createContext, useContext, useEffect, useMemo, useState } from 'react'
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { PRODUK, USER_DEFAULT, hitungKategoriTren } from '../lib/dataProduk'
 import { keHimpunan } from '../lib/rekomendasi'
+import { ambilIdPerangkat, muatServer, simpanServer } from '../lib/penyimpanan'
 
 const AppContext = createContext(null)
 
-const muat = (kunci, bawaan) => {
+// State disimpan per perangkat di MySQL (via API Laragon) dan di-cache ke
+// localStorage agar tampilan instan saat reload & tetap jalan saat offline.
+// Kunci lama tp_minat/tp_keranjang/... dipensiunkan: satu JSON `tp_state`.
+const KUNCI_CACHE = 'tp_state'
+
+const muatCache = () => {
   try {
-    const v = localStorage.getItem(kunci)
-    return v ? JSON.parse(v) : bawaan
+    const v = localStorage.getItem(KUNCI_CACHE)
+    return v ? JSON.parse(v) : null
   } catch {
-    return bawaan
+    return null
   }
 }
 
-const simpan = (kunci, nilai) => {
+const simpanCache = (state) => {
   try {
-    localStorage.setItem(kunci, JSON.stringify(nilai))
+    localStorage.setItem(KUNCI_CACHE, JSON.stringify(state))
   } catch {
     /* abaikan */
   }
 }
 
+// Migrasi satu kali: angkat data dari kunci-kunci lama ke cache baru
+const migrasiLama = () => {
+  try {
+    const lama = {}
+    for (const k of ['tp_minat', 'tp_rating', 'tp_keranjang', 'tp_wishlist', 'tp_riwayat', 'tp_pesanan']) {
+      const v = localStorage.getItem(k)
+      if (v) {
+        lama[k.slice(3)] = JSON.parse(v)
+        localStorage.removeItem(k)
+      }
+    }
+    return Object.keys(lama).length ? lama : null
+  } catch {
+    return null
+  }
+}
+
 export function AppProvider({ children }) {
-  const [gelap, setGelap] = useState(() => muat('tp_gelap', false))
-  const [minat, setMinat] = useState(() => muat('tp_minat', USER_DEFAULT.minat))
-  const [ratingSuka, setRatingSuka] = useState(() => muat('tp_rating', USER_DEFAULT.ratingSuka))
-  const [keranjang, setKeranjang] = useState(() => muat('tp_keranjang', []))
-  const [wishlist, setWishlist] = useState(() => muat('tp_wishlist', []))
+  const idRef = useRef(ambilIdPerangkat())
+
+  const [gelap, setGelap] = useState(() => {
+    try {
+      const v = localStorage.getItem('tp_gelap')
+      return v ? JSON.parse(v) : false
+    } catch {
+      return false
+    }
+  })
+
+  // State awal dibaca SEKALI: cache `tp_state` → migrasi kunci lama →
+  // default "mulai kosong" (kunjungan pertama tanpa pilihan awal apa pun).
+  const [awal] = useState(() => {
+    const cache = muatCache() ?? migrasiLama()
+    return {
+      minat: cache?.minat ?? USER_DEFAULT.minat,
+      ratingSuka: cache?.ratingSuka ?? USER_DEFAULT.ratingSuka,
+      keranjang: cache?.keranjang ?? [],
+      wishlist: cache?.wishlist ?? [],
+      riwayat: cache?.riwayat ?? USER_DEFAULT.riwayat,
+      pesanan: cache?.pesanan ?? null,
+    }
+  })
+
+  const [minat, setMinat] = useState(awal.minat)
+  const [ratingSuka, setRatingSuka] = useState(awal.ratingSuka)
+  const [keranjang, setKeranjang] = useState(awal.keranjang)
+  const [wishlist, setWishlist] = useState(awal.wishlist)
   // Barisan R: riwayat minat per sesi interaksi
-  const [riwayat, setRiwayat] = useState(() => muat('tp_riwayat', USER_DEFAULT.riwayat))
-  const [pesanan, setPesanan] = useState(() => muat('tp_pesanan', null))
+  const [riwayat, setRiwayat] = useState(awal.riwayat)
+  const [pesanan, setPesanan] = useState(awal.pesanan)
 
   const kategoriTren = useMemo(() => hitungKategoriTren(PRODUK), [])
 
+  // Simpan cache + kirim ke MySQL setiap ada perubahan (debounce ringan)
+  useEffect(() => {
+    const state = { minat, ratingSuka, keranjang, wishlist, riwayat, pesanan }
+    simpanCache(state)
+    const t = setTimeout(() => simpanServer(idRef.current, state), 400)
+    return () => clearTimeout(t)
+  }, [minat, ratingSuka, keranjang, wishlist, riwayat, pesanan])
+    // Muat state dari server saat mount — menimpa cache bila ada data tersimpan
+  useEffect(() => {
+    let batal = false
+    muatServer(idRef.current).then((data) => {
+      if (batal || !data) return
+      if (Array.isArray(data.minat)) setMinat(data.minat)
+      if (Array.isArray(data.ratingSuka)) setRatingSuka(data.ratingSuka)
+      if (Array.isArray(data.keranjang)) setKeranjang(data.keranjang)
+      if (Array.isArray(data.wishlist)) setWishlist(data.wishlist)
+      if (Array.isArray(data.riwayat)) setRiwayat(data.riwayat)
+      if (data.pesanan !== undefined) setPesanan(data.pesanan)
+    })
+    return () => {
+      batal = true
+    }
+  }, [])
+
   useEffect(() => {
     document.documentElement.classList.toggle('dark', gelap)
-    simpan('tp_gelap', gelap)
+    localStorage.setItem('tp_gelap', JSON.stringify(gelap))
   }, [gelap])
-  useEffect(() => simpan('tp_minat', minat), [minat])
-  useEffect(() => simpan('tp_rating', ratingSuka), [ratingSuka])
-  useEffect(() => simpan('tp_keranjang', keranjang), [keranjang])
-  useEffect(() => simpan('tp_wishlist', wishlist), [wishlist])
-  useEffect(() => simpan('tp_riwayat', riwayat), [riwayat])
-  useEffect(() => simpan('tp_pesanan', pesanan), [pesanan])
 
   // Perbarui himpunan minat A (dari checkbox kategori / interaksi)
   const ubahMinat = (kategori, aktif) => {
@@ -103,6 +168,14 @@ export function AppProvider({ children }) {
     setRiwayat((lama) => [...lama, [...minat]])
   }
 
+  const hapusRiwayat = (index) => {
+    setRiwayat((lama) => lama.filter((_, i) => i !== index))
+  }
+
+  const hapusSemuaRiwayat = () => {
+    setRiwayat([])
+  }
+
   const checkout = (data) => {
     const total = keranjang.reduce((s, x) => s + x.harga * x.jumlah, 0)
     setPesanan({ ...data, items: keranjang, total, waktu: new Date().toISOString() })
@@ -130,6 +203,8 @@ export function AppProvider({ children }) {
     toggleWishlist,
     catatInteraksi,
     mulaiPeriodeBaru,
+    hapusRiwayat,
+    hapusSemuaRiwayat,
     checkout,
   }
 

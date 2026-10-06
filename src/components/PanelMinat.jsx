@@ -1,56 +1,95 @@
 import { useApp } from '../store/AppContext'
 import { KATEGORI } from '../lib/dataProduk'
-import { komplemen, keHimpunan } from '../lib/rekomendasi'
+import { ringkasanHimpunan, tulisHimpunan } from '../lib/rekomendasi'
 
-// Panel pemilihan himpunan minat pengguna (A) via checkbox kategori
+const IKON_KATEGORI = {
+  Elektronik: '🎧',
+  Fashion: '👕',
+  Olahraga: '🏋️',
+  Buku: '📚',
+  'Rumah Tangga': '🏠',
+  'Mainan & Hobi': '🧩',
+}
+
 export default function PanelMinat() {
   const { minat, ubahMinat, kategoriTren } = useApp()
 
-  const A = minat
-  const U = keHimpunan(KATEGORI)
-  const Ac = komplemen(A, U)
+  const { A, Ac, irisanAT, selisihTA } = ringkasanHimpunan([...minat], kategoriTren, KATEGORI)
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800">
-      <h3 className="mb-1 text-sm font-bold text-slate-800 dark:text-slate-100">
-        🎯 Minat Saya <span className="font-mono text-xs text-slate-400">(himpunan A)</span>
-      </h3>
-      <p className="mb-3 text-xs text-slate-500 dark:text-slate-400">
-        Centang kategori yang kamu sukai — rekomendasi langsung dihitung ulang dari irisan minat.
-      </p>
-      <div className="flex flex-wrap gap-2">
-        {KATEGORI.map((k) => {
-          const aktif = A.has(k)
-          const tren = kategoriTren.includes(k)
-          return (
-            <label
-              key={k}
-              className={`flex cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition ${
-                aktif
-                  ? 'border-primary-600 bg-primary-600 text-white'
-                  : 'border-slate-300 text-slate-600 hover:border-primary-400 dark:border-slate-600 dark:text-slate-300'
-              }`}
-            >
-              <input
-                type="checkbox"
-                checked={aktif}
-                onChange={(e) => ubahMinat(k, e.target.checked)}
-                className="hidden"
-              />
-              {tren && !aktif && '🔥 '}
-              {aktif && '✓ '}
-              {k}
-            </label>
-          )
-        })}
+    <section
+      aria-label="Pengaturan minat"
+      className="panel overflow-hidden"
+    >
+      <div className="grid md:grid-cols-[1.1fr_0.9fr]">
+        {/* Kiri: pemilihan minat */}
+        <div className="p-6">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <h3 className="text-lg font-extrabold tracking-tight text-white">Minatmu</h3>
+            <span className="rounded-full bg-violet-500/15 px-3 py-1 text-xs font-bold text-violet-300">
+              {A.size}/{KATEGORI.length} dipilih
+            </span>
+          </div>
+          <p className="mb-5 text-sm leading-relaxed text-slate-400">
+            Kategori yang kamu pilih menjadi himpunan{' '}
+            <span className="font-mono font-semibold text-violet-300">A</span> — mesin rekomendasi menghitung ulang skor
+            seketika.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {KATEGORI.map((k) => {
+              const aktif = A.has(k)
+              const tren = kategoriTren.includes(k)
+              return (
+                <label
+                  key={k}
+                  className={`flex cursor-pointer items-center gap-1.5 rounded-full border px-3.5 py-2 text-xs font-semibold transition-all duration-200 ${
+                    aktif
+                      ? 'border-transparent grad-aksi text-white shadow-md shadow-accent-500/25'
+                      : 'border-white/10 bg-white/[0.03] text-slate-300 hover:border-violet-400/50 hover:text-white'
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={aktif}
+                    onChange={(e) => ubahMinat(k, e.target.checked)}
+                    className="peer sr-only"
+                  />
+                  <span aria-hidden>{IKON_KATEGORI[k] ?? '🏷️'}</span>
+                  {k}
+                  {tren && !aktif && <span title="Kategori sedang tren">🔥</span>}
+                </label>
+              )
+            })}
+          </div>
+          <p className="mt-5 rounded-xl bg-white/[0.04] px-3 py-2 font-mono text-[11px] text-slate-400">
+            A = {tulisHimpunan(A)} · Aᶜ = {tulisHimpunan(Ac)}
+          </p>
+        </div>
+
+        {/* Kanan: analisis terhadap tren */}
+        <div className="border-t border-white/[0.06] bg-white/[0.02] p-6 md:border-l md:border-t-0">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <h3 className="text-lg font-extrabold tracking-tight text-white">Kategori tren</h3>
+            <span className="rounded-full bg-amber-400/15 px-3 py-1 text-xs font-bold text-amber-300">
+              {kategoriTren.length} kategori
+            </span>
+          </div>
+          <p className="mb-5 font-mono text-xs text-slate-400">B = {tulisHimpunan(kategoriTren)}</p>
+          <dl className="space-y-2.5 text-xs">
+            <div className="rounded-xl bg-white/[0.04] p-3">
+              <dt className="font-semibold text-slate-300">A ∩ B — favoritmu yang sedang tren</dt>
+              <dd className="mt-1 font-mono text-[11px] font-bold text-emerald-300">{tulisHimpunan(irisanAT)}</dd>
+            </div>
+            <div className="rounded-xl bg-white/[0.04] p-3">
+              <dt className="font-semibold text-slate-300">B − A — tren yang belum kamu ikuti</dt>
+              <dd className="mt-1 font-mono text-[11px] font-bold text-amber-300">{tulisHimpunan(selisihTA)}</dd>
+            </div>
+          </dl>
+          <p className="mt-4 text-[11px] leading-relaxed text-slate-500">
+            Skor tiap produk = 0.6·kategori + 0.3·rating + 0.1·tren
+          </p>
+        </div>
       </div>
-      <p className="mt-3 rounded-lg bg-slate-50 p-2 font-mono text-[11px] text-slate-500 dark:bg-slate-700/50 dark:text-slate-400">
-        A = {'{'}
-        {[...A].join(', ') || '∅'}
-        {'}'} · Aᶜ = {'{'}
-        {[...Ac].join(', ') || '∅'}
-        {'}'}
-      </p>
-    </div>
+    </section>
   )
 }

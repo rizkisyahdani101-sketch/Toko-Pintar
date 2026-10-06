@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { useApp } from '../store/AppContext'
 import { KATEGORI } from '../lib/dataProduk'
 import {
@@ -8,36 +8,28 @@ import {
   komplemen,
   selisih,
   jaccard,
-  hitungSkor,
   pergeseranMinat,
   stabilitasMinat,
-  estimasiOperasi,
-  estimasiOperasiPrefilter,
-  BOBOT,
+  skalaKecocokan,
 } from '../lib/rekomendasi'
 import {
   KODE_HIMPUNAN,
-  KODE_JACCARD,
-  KODE_SIGMA,
-  KODE_REKOMENDASI,
   KODE_BARISAN,
-  KODE_BIG_O,
 } from '../lib/codeSnippets'
 import CodeBlock from '../components/CodeBlock'
 
 const TABS = [
   { id: 'himpunan', label: '⊕ Himpunan & Operasi' },
-  { id: 'jaccard', label: '📐 Jaccard Similarity' },
-  { id: 'sigma', label: 'Σ Notasi Sigma (Skor)' },
   { id: 'barisan', label: '🔗 Barisan (Riwayat)' },
-  { id: 'bigo', label: '📈 Pertumbuhan (Big-O)' },
 ]
 
 // ---------- Playground: pilih elemen himpunan ----------
 function PlaygroundHimpunan() {
   const { kategoriTren } = useApp()
-  const [setA, setSetA] = useState(['Elektronik', 'Buku'])
-  const [setB, setSetB] = useState(kategoriTren)
+  // Playground mulai kosong — sesuai prinsip "mulai kosong" aplikasi:
+  // pengguna membangun himpunannya sendiri dari nol.
+  const [setA, setSetA] = useState([])
+  const [setB, setSetB] = useState([])
 
   const toggle = (setter) => (elemen) =>
     setter((lama) => (lama.includes(elemen) ? lama.filter((x) => x !== elemen) : [...lama, elemen]))
@@ -56,8 +48,8 @@ function PlaygroundHimpunan() {
       onClick={onClick}
       className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
         aktif
-          ? 'border-primary-600 bg-primary-600 text-white'
-          : 'border-slate-300 text-slate-600 hover:border-primary-400 dark:border-slate-600 dark:text-slate-300'
+          ? 'grad-aksi border-transparent text-white shadow-sm shadow-accent-500/25'
+          : 'border-white/10 bg-white/[0.03] text-slate-300 hover:border-violet-400/50 hover:text-white'
       }`}
     >
       {children}
@@ -66,7 +58,7 @@ function PlaygroundHimpunan() {
 
   const Pilih = ({ nilai, setter, label }) => (
     <div>
-      <p className="mb-1.5 text-xs font-bold text-slate-500 dark:text-slate-400">{label}</p>
+      <p className="mb-1.5 text-xs font-bold text-slate-400">{label}</p>
       <div className="flex flex-wrap gap-1.5">
         {KATEGORI.map((k) => (
           <Chip key={k} aktif={nilai.includes(k)} onClick={() => toggle(setter)(k)}>
@@ -78,18 +70,18 @@ function PlaygroundHimpunan() {
   )
 
   const Hasil = ({ label, rumus, isi, tebal }) => (
-    <div className={`rounded-lg p-2 font-mono text-xs ${tebal ? 'bg-primary-50 dark:bg-primary-900/30' : 'bg-slate-50 dark:bg-slate-700/50'}`}>
-      <span className="text-slate-500 dark:text-slate-400">{rumus} = </span>
-      <span className={tebal ? 'font-bold text-primary-700 dark:text-primary-300' : 'text-slate-700 dark:text-slate-200'}>
+    <div className={`rounded-lg p-2 font-mono text-xs ${      tebal ? 'bg-violet-500/15' : 'bg-white/[0.03]'}`}>
+      <span className="text-slate-400">{rumus} = </span>
+      <span className={tebal ? 'font-bold text-violet-300' : 'text-slate-200'}>
         {'{'} {isi.join(', ') || '∅'} {'}'}
       </span>
     </div>
   )
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
-      <h3 className="mb-1 text-base font-bold text-slate-800 dark:text-slate-100">🧪 Coba Sendiri</h3>
-      <p className="mb-4 text-xs text-slate-500 dark:text-slate-400">
+    <div className="rounded-2xl panel p-5">
+      <h3 className="mb-1 text-base font-bold text-slate-100">🧪 Coba Sendiri</h3>
+      <p className="mb-4 text-xs text-slate-400">
         Pilih elemen himpunan A dan B, lalu semua operasi dihitung langsung di browser memakai fungsi yang sama dengan
         kode di atas.
       </p>
@@ -103,95 +95,57 @@ function PlaygroundHimpunan() {
         <Hasil rumus="Aᶜ = U − A" isi={[...Ac]} />
         <Hasil rumus="B − A" isi={[...s]} />
       </div>
-      <div className="mt-3 rounded-xl bg-gradient-to-r from-primary-600 to-primary-800 p-4 text-white">
-        <p className="font-mono text-sm">
-          J(A, B) = |A ∩ B| / |A ∪ B| = {i.size}/{g.size} ={' '}
-          <b className="text-lg">{J.toFixed(2)}</b>
-        </p>
-        <div className="mt-2 h-2 overflow-hidden rounded-full bg-white/20">
-          <div className="h-full rounded-full bg-white transition-all" style={{ width: `${J * 100}%` }} />
-        </div>
-      </div>
-    </div>
-  )
-}
+      <div className="mt-3 overflow-hidden rounded-[22px] border border-accent-200/70 bg-gradient-to-br from-accent-600 via-accent-700 to-indigo-950 p-4 text-white shadow-[0_18px_35px_-15px_rgba(76,29,149,0.55)]">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div>
+            <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.2em] text-accent-100/80">
+              Market fit score
+            </p>
+            <div className="flex items-end gap-2">
+              <span className="text-3xl font-black leading-none">{J.toFixed(2)}</span>
+              <span className="pb-1 text-xs font-semibold text-violet-200/80">/ 1.00</span>
+            </div>
+          </div>
 
-// ---------- Playground: skor sigma dengan slider bobot ----------
-function PlaygroundSigma() {
-  const { kategoriTren } = useApp()
-  const [minat, setMinat] = useState(['Elektronik', 'Buku'])
-  const [w1, setW1] = useState(BOBOT.genre)
-  const [w2, setW2] = useState(BOBOT.rating)
-  const [w3, setW3] = useState(BOBOT.tren)
-  const [itemRating, setItemRating] = useState(4)
-  const [itemTren, setItemTren] = useState(true)
-
-  const A = keHimpunan(minat)
-  const B = keHimpunan(['Elektronik']) // contoh: item berkategori Elektronik
-  const R = keHimpunan([4, 5]) // rating yang disukai pengguna
-  const RB = keHimpunan([itemRating])
-  const T = keHimpunan(itemTren ? kategoriTren : [])
-
-  const jG = jaccard(A, B)
-  const jR = jaccard(R, RB)
-  const jT = jaccard(A, T)
-  const total = w1 * jG + w2 * jR + w3 * jT
-
-  const Slider = ({ label, w, set }) => (
-    <div>
-      <div className="mb-1 flex justify-between text-xs font-medium text-slate-600 dark:text-slate-300">
-        <span>{label}</span>
-        <span className="font-mono">w = {w.toFixed(1)}</span>
-      </div>
-      <input
-        type="range"
-        min="0"
-        max="1"
-        step="0.1"
-        value={w}
-        onChange={(e) => set(Number(e.target.value))}
-        className="w-full accent-primary-600"
-      />
-    </div>
-  )
-
-  return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
-      <h3 className="mb-1 text-base font-bold text-slate-800 dark:text-slate-100">🧪 Simulasi Skor S(u,i)</h3>
-      <p className="mb-4 text-xs text-slate-500 dark:text-slate-400">
-        Contoh item berkategori Elektronik. Geser bobot dan lihat bagaimana skor sigma berubah.
-      </p>
-      <div className="grid gap-6 sm:grid-cols-2">
-        <div className="space-y-4">
-          <Slider label="w₁ · Kategori (genre)" w={w1} set={setW1} />
-          <Slider label="w₂ · Rating" w={w2} set={setW2} />
-          <Slider label="w₃ · Tren" w={w3} set={setW3} />
-          <div className="flex items-center gap-4 text-xs text-slate-600 dark:text-slate-300">
-            <label className="flex items-center gap-1.5">
-              Rating item:
-              <select
-                value={itemRating}
-                onChange={(e) => setItemRating(Number(e.target.value))}
-                className="rounded border border-slate-300 px-2 py-1 dark:border-slate-600 dark:bg-slate-700"
-              >
-                {[3, 4, 5].map((r) => (
-                  <option key={r}>{r}</option>
-                ))}
-              </select>
-            </label>
-            <label className="flex items-center gap-1.5">
-              <input type="checkbox" checked={itemTren} onChange={(e) => setItemTren(e.target.checked)} />
-              Item sedang tren
-            </label>
+          <div className="flex items-center gap-2 self-start rounded-full border border-white/20 bg-white/10 px-3 py-1.5 backdrop-blur-sm md:self-auto">
+            <span className="h-2.5 w-2.5 rounded-full bg-emerald-300 shadow-[0_0_10px_rgba(110,231,183,0.9)]" />
+            <span className="text-xs font-bold uppercase tracking-[0.12em] text-white">
+              {skalaKecocokan(Math.round(J * 100)).label}
+            </span>
           </div>
         </div>
-        <div className="space-y-2 rounded-xl bg-slate-50 p-4 font-mono text-xs text-slate-600 dark:bg-slate-700/50 dark:text-slate-300">
-          <p>J₁ (kategori) = {jG.toFixed(2)} → w₁·J₁ = {(w1 * jG).toFixed(3)}</p>
-          <p>J₂ (rating) = {jR.toFixed(2)} → w₂·J₂ = {(w2 * jR).toFixed(3)}</p>
-          <p>J₃ (tren) = {jT.toFixed(2)} → w₃·J₃ = {(w3 * jT).toFixed(3)}</p>
-          <p className="mt-2 border-t border-slate-200 pt-2 text-sm font-bold text-primary-700 dark:border-slate-600 dark:text-primary-300">
-            S(u,i) = Σ wₖ·Jₖ = {total.toFixed(3)}
-          </p>
+
+        <div className="mt-4 rounded-2xl bg-white/10 p-3 backdrop-blur-md">
+          <div className="mb-2 flex items-center justify-between text-[11px] font-semibold text-accent-50/90">
+            <span>Skala kompatibilitas</span>
+            <span>{Math.round(J * 100)}%</span>
+          </div>
+          <div className="h-3 overflow-hidden rounded-full bg-white/15">
+            <div
+              className={`h-full rounded-full ${skalaKecocokan(Math.round(J * 100)).bar} transition-all duration-500`}
+              style={{ width: `${Math.min(100, Math.round(J * 100))}%` }}
+            />
+          </div>
+          <div className="mt-2 flex justify-between text-[10px] font-semibold text-accent-100/80">
+            <span>0</span>
+            <span>0.5</span>
+            <span>1</span>
+          </div>
+        </div>
+
+        <div className="mt-4 grid gap-2 sm:grid-cols-3">
+          <div className="rounded-xl bg-white/10 p-2.5">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-accent-100/70">Irisan</p>
+            <p className="mt-1 font-mono text-sm font-bold text-white">{i.size}</p>
+          </div>
+          <div className="rounded-xl bg-white/10 p-2.5">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-accent-100/70">Gabungan</p>
+            <p className="mt-1 font-mono text-sm font-bold text-white">{g.size}</p>
+          </div>
+          <div className="rounded-xl bg-white/10 p-2.5">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-accent-100/70">Rumus</p>
+            <p className="mt-1 font-mono text-xs font-bold text-white">|A∩B| / |A∪B|</p>
+          </div>
         </div>
       </div>
     </div>
@@ -200,94 +154,97 @@ function PlaygroundSigma() {
 
 // ---------- Playground: barisan riwayat ----------
 function PlaygroundBarisan() {
-  const { riwayat, mulaiPeriodeBaru } = useApp()
+  const { riwayat, mulaiPeriodeBaru, hapusRiwayat, hapusSemuaRiwayat } = useApp()
+  const [hapusMode, setHapusMode] = useState(false)
   const pergeseran = pergeseranMinat(riwayat)
   const stabilitas = stabilitasMinat(riwayat)
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
-      <h3 className="mb-1 text-base font-bold text-slate-800 dark:text-slate-100">🧪 Riwayat Minat Kamu (Barisan R)</h3>
-      <p className="mb-4 text-xs text-slate-500 dark:text-slate-400">
+    <div className="rounded-2xl panel p-5">
+      <h3 className="mb-1 text-base font-bold text-slate-100">🧪 Riwayat Minat Kamu (Barisan R)</h3>
+      <p className="mb-4 text-xs text-slate-400">
         Setiap kali kamu membuka detail produk atau menambah ke keranjang, minat periode ini diperbarui. Tombol di
         bawah menutup periode dan membuka periode baru.
       </p>
-      <div className="mb-4 flex flex-wrap items-center gap-2">
-        {riwayat.map((r, t) => (
-          <div key={t} className="flex items-center gap-2">
-            <div className="rounded-xl border border-primary-200 bg-primary-50 px-3 py-2 text-center dark:border-primary-800 dark:bg-primary-900/30">
-              <p className="text-[10px] font-bold text-primary-500">r{t + 1}</p>
-              <p className="font-mono text-[11px] text-primary-800 dark:text-primary-200">{'{'} {r.join(', ') || '∅'} {'}'}</p>
+
+      {riwayat.length === 0 ? (
+        <div className="mb-4 rounded-2xl border border-dashed border-white/10 bg-white/[0.03] p-6 text-center text-sm text-slate-400">
+          Belum ada riwayat minat. Kamu bisa memulai periode baru untuk menambahkan data.
+        </div>
+      ) : (
+        <div className="mb-4 flex flex-wrap items-center gap-2">
+          {riwayat.map((r, t) => (
+            <div key={t} className="flex items-center gap-2">
+              <div className="rounded-xl border border-violet-400/25 bg-violet-500/10 px-3 py-2 text-center">
+                {hapusMode && (
+                  <div className="mb-1 flex items-center justify-between gap-2">
+                    <p className="text-[10px] font-bold text-violet-300">r{t + 1}</p>
+                    <button
+                      type="button"
+                      onClick={() => hapusRiwayat(t)}
+                      className="text-[9px] font-semibold text-rose-500 transition hover:text-rose-700"
+                      aria-label={`Hapus riwayat periode ${t + 1}`}
+                    >
+                      Hapus
+                    </button>
+                  </div>
+                )}
+                {!hapusMode && <p className="mb-1 text-[10px] font-bold text-accent-500">r{t + 1}</p>}
+                <p className="font-mono text-[11px] text-violet-200">{'{'} {r.join(', ') || '∅'} {'}'}</p>
+              </div>
+              {t < riwayat.length - 1 && <span className="text-slate-400">→</span>}
             </div>
-            {t < riwayat.length - 1 && <span className="text-slate-400">→</span>}
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
+
       <div className="mb-4 grid gap-2 sm:grid-cols-2">
-        <div className="rounded-lg bg-green-50 p-2 text-xs text-green-700 dark:bg-green-900/30 dark:text-green-300">
+        <div className="rounded-lg bg-emerald-500/10 p-2 text-xs text-emerald-300">
           ➕ Kategori baru periode ini: <b>{pergeseran.baru.join(', ') || '—'}</b>
         </div>
-        <div className="rounded-lg bg-rose-50 p-2 text-xs text-rose-700 dark:bg-rose-900/30 dark:text-rose-300">
+        <div className="rounded-lg bg-rose-500/10 p-2 text-xs text-rose-300">
           ➖ Tidak lagi disukai: <b>{pergeseran.hilang.join(', ') || '—'}</b>
         </div>
       </div>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-xs text-slate-500 dark:text-slate-400">
-          Stabilitas minat = J(r{riwayat.length - 1}, r{riwayat.length}) = <b>{stabilitas.toFixed(2)}</b>
+        <p className="text-xs text-slate-400">
+          {riwayat.length >= 2 ? (
+            <>
+              Stabilitas minat = J(r{riwayat.length - 1}, r{riwayat.length}) = <b>{stabilitas.toFixed(2)}</b>
+            </>
+          ) : (
+            <>
+              Stabilitas minat: <b>Belum cukup data</b>
+            </>
+          )}
         </p>
-        <button
-          onClick={mulaiPeriodeBaru}
-          className="rounded-lg bg-primary-600 px-4 py-2 text-xs font-bold text-white hover:bg-primary-700"
-        >
-          + Mulai Periode Baru
-        </button>
-      </div>
-    </div>
-  )
-}
-
-// ---------- Playground: kalkulator Big-O ----------
-function PlaygroundBigO() {
-  const [m, setM] = useState(1000)
-  const [n, setN] = useState(1000)
-  const [k, setK] = useState(6)
-
-  const naif = estimasiOperasi(m, n, k)
-  const prefilter = estimasiOperasiPrefilter(m, n, k)
-  const efisiensi = naif > 0 ? (1 - prefilter / naif) * 100 : 0
-
-  const fmt = (x) => new Intl.NumberFormat('id-ID').format(Math.round(x))
-  const Slider = ({ label, v, set, min, max, step }) => (
-    <div>
-      <div className="mb-1 flex justify-between text-xs font-medium text-slate-600 dark:text-slate-300">
-        <span>{label}</span>
-        <span className="font-mono">{fmt(v)}</span>
-      </div>
-      <input type="range" min={min} max={max} step={step} value={v} onChange={(e) => set(Number(e.target.value))} className="w-full accent-primary-600" />
-    </div>
-  )
-
-  return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
-      <h3 className="mb-1 text-base font-bold text-slate-800 dark:text-slate-100">🧪 Kalkulator Kompleksitas O(m × n × k)</h3>
-      <p className="mb-4 text-xs text-slate-500 dark:text-slate-400">
-        Geser jumlah pengguna (m), item (n), dan ukuran rata-rata himpunan (k). Bandingkan pendekatan naif vs
-        pre-filtering.
-      </p>
-      <div className="mb-4 grid gap-4 sm:grid-cols-3">
-        <Slider label="m · pengguna" v={m} set={setM} min={100} max={100000} step={100} />
-        <Slider label="n · item" v={n} set={setN} min={100} max={100000} step={100} />
-        <Slider label="k · ukuran himpunan" v={k} set={setK} min={2} max={20} step={1} />
-      </div>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <div className="rounded-xl bg-rose-50 p-4 dark:bg-rose-900/30">
-          <p className="mb-1 text-xs font-bold text-rose-600 dark:text-rose-300">Naif — O(m × n × k)</p>
-          <p className="font-mono text-xl font-bold text-rose-700 dark:text-rose-200">{fmt(naif)}</p>
-          <p className="text-[11px] text-rose-500 dark:text-rose-300/70">operasi irisan himpunan</p>
-        </div>
-        <div className="rounded-xl bg-green-50 p-4 dark:bg-green-900/30">
-          <p className="mb-1 text-xs font-bold text-green-600 dark:text-green-300">Pre-filtering (±20% kandidat)</p>
-          <p className="font-mono text-xl font-bold text-green-700 dark:text-green-200">{fmt(prefilter)}</p>
-          <p className="text-[11px] text-green-500 dark:text-green-300/70">hemat ±{efisiensi.toFixed(0)}% operasi</p>
+        <div className="flex flex-wrap gap-2">
+          {riwayat.length > 0 && (
+            <button
+              onClick={() => setHapusMode((v) => !v)}
+              className={`rounded-lg px-3 py-2 text-[10px] font-bold uppercase tracking-wide ${
+                hapusMode
+                  ? 'border border-white/10 bg-white/[0.06] text-slate-200 hover:bg-white/[0.12]'
+                  : 'border border-rose-400/30 bg-rose-500/10 text-rose-300 hover:bg-rose-500/20'
+              }`}
+            >
+              {hapusMode ? 'Selesai' : 'Hapus Riwayat'}
+            </button>
+          )}
+          {hapusMode && riwayat.length > 0 && (
+            <button
+              onClick={hapusSemuaRiwayat}
+              className="rounded-lg border border-rose-400/30 bg-rose-500/10 px-3 py-2 text-[10px] font-bold uppercase tracking-wide text-rose-300 hover:bg-rose-500/20"
+            >
+              Hapus Semua
+            </button>
+          )}
+          <button
+            onClick={mulaiPeriodeBaru}
+            className="grad-aksi rounded-lg px-4 py-2 text-xs font-bold text-white shadow-sm shadow-accent-500/25"
+          >
+            + Mulai Periode Baru
+          </button>
         </div>
       </div>
     </div>
@@ -310,20 +267,20 @@ export default function LogikaMatematika() {
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
               <thead>
-                <tr className="border-b border-slate-200 text-slate-500 dark:border-slate-600">
+                <tr className="border-b border-white/10 text-slate-400">
                   <th className="py-2 pr-4">Operasi</th>
                   <th className="py-2 pr-4">Notasi</th>
                   <th className="py-2">Makna dalam sistem</th>
                 </tr>
               </thead>
-              <tbody className="text-slate-600 dark:text-slate-300">
+              <tbody className="text-slate-300">
                 {[
                   ['Irisan', 'A ∩ B', 'Genre favorit yang juga tren → kandidat rekomendasi utama'],
                   ['Gabungan', 'A ∪ B', 'Seluruh genre relevan → cakupan eksplorasi'],
                   ['Komplemen', 'Aᶜ = U − A', 'Belum pernah disukai → potensi rekomendasi baru (diversifikasi)'],
                   ['Selisih', 'B − A', 'Tren yang belum disukai → peluang memperluas minat'],
                 ].map(([a, b, c]) => (
-                  <tr key={a} className="border-b border-slate-100 dark:border-slate-700">
+                  <tr key={a} className="border-b border-white/[0.06]">
                     <td className="py-2 pr-4 font-semibold">{a}</td>
                     <td className="py-2 pr-4 font-mono">{b}</td>
                     <td className="py-2">{c}</td>
@@ -332,59 +289,20 @@ export default function LogikaMatematika() {
               </tbody>
             </table>
           </div>
+          <p className="mb-3">
+            Dari operasi di atas lahir dua koefisien kemiripan: <b>Jaccard</b> <span className="font-mono">J(A, B) = |A ∩ B| / |A ∪ B|</span> dan <b>tumpang tindih</b> <span className="font-mono">O(A, B) = |A ∩ B| / min(|A|, |B|)</span>. <b>O</b> adalah dasar skor kecocokan karena bernilai 1 saat atribut item benar-benar cocok — sehingga skor bisa mencapai <b>100%</b> dan dipetakan ke <b>5 skala</b>: Tidak Cocok, Kurang Cocok, Cukup Cocok, Cocok, Sangat Cocok (skala terakhir hanya muncul di <b>100%</b>).
+          </p>
         </>
       ),
       kode: [{ judul: 'src/lib/rekomendasi.js', isi: KODE_HIMPUNAN }],
       playground: <PlaygroundHimpunan />,
-    },
-    jaccard: {
-      judul: 'Koefisien Kemiripan Jaccard',
-      teori: (
-        <>
-          <p className="mb-3">
-            Seberapa mirip dua himpunan? Fungsi similarity memetakan pasangan (A, B) ke bilangan real [0, 1]:
-          </p>
-          <p className="mb-3 rounded-xl bg-slate-100 p-4 text-center font-mono text-lg font-bold text-primary-700 dark:bg-slate-700 dark:text-primary-300">
-            J(A, B) = |A ∩ B| / |A ∪ B|
-          </p>
-          <p>
-            Contoh dari laporan: A = {'{'}Aksi, Sci-Fi, Drama{'}'}, B = {'{'}Sci-Fi, Drama{'}'} → |A∩B| = 2, |A∪B| = 3 →
-            J = 2/3 ≈ 0.67 (kecocokan tinggi).
-          </p>
-        </>
-      ),
-      kode: [{ judul: 'src/lib/rekomendasi.js', isi: KODE_JACCARD }],
-      playground: <PlaygroundHimpunan />,
-    },
-    sigma: {
-      judul: 'Notasi Sigma — Skor Gabungan Berbobot',
-      teori: (
-        <>
-          <p className="mb-3">
-            Rekomendasi mempertimbangkan beberapa kriteria sekaligus. Skor total item <i>i</i> untuk pengguna <i>u</i>:
-          </p>
-          <p className="mb-3 rounded-xl bg-slate-100 p-4 text-center font-mono text-lg font-bold text-primary-700 dark:bg-slate-700 dark:text-primary-300">
-            S(u, i) = Σₖ₌₁ⁿ wₖ · Jₖ(u, i)
-          </p>
-          <ul className="list-inside list-disc space-y-1 text-sm">
-            <li>Jₖ(u,i) = skor kemiripan pada kriteria ke-k (kategori, rating, tren)</li>
-            <li>wₖ = bobot kepentingan (0.6 / 0.3 / 0.1 — jumlahnya 1)</li>
-            <li>n = jumlah kriteria (di sistem ini 3)</li>
-          </ul>
-        </>
-      ),
-      kode: [
-        { judul: 'src/lib/rekomendasi.js — skor', isi: KODE_SIGMA },
-        { judul: 'src/lib/rekomendasi.js — perangkingan & diversifikasi', isi: KODE_REKOMENDASI },
-      ],
-      playground: <PlaygroundSigma />,
     },
     barisan: {
       judul: 'Barisan — Riwayat Minat Pengguna',
       teori: (
         <>
           <p className="mb-3">Riwayat interaksi pengguna dimodelkan sebagai barisan waktu:</p>
-          <p className="mb-3 rounded-xl bg-slate-100 p-4 text-center font-mono text-lg font-bold text-primary-700 dark:bg-slate-700 dark:text-primary-300">
+          <p className="mb-3 rounded-xl bg-white/[0.05] p-4 text-center font-mono text-lg font-bold text-violet-300">
             R = (r₁, r₂, r₃, …, rₜ)
           </p>
           <p>
@@ -397,38 +315,15 @@ export default function LogikaMatematika() {
       kode: [{ judul: 'src/lib/rekomendasi.js', isi: KODE_BARISAN }],
       playground: <PlaygroundBarisan />,
     },
-    bigo: {
-      judul: 'Pertumbuhan Fungsi — Analisis Kompleksitas',
-      teori: (
-        <>
-          <p className="mb-3">
-            Untuk <b>m</b> pengguna dan <b>n</b> item, perhitungan skor semua kombinasi secara naif membutuhkan O(m ×
-            n). Setiap pasangan memerlukan operasi irisan himpunan O(k) dengan hash set (k = ukuran rata-rata
-            himpunan):
-          </p>
-          <p className="mb-3 rounded-xl bg-slate-100 p-4 text-center font-mono text-lg font-bold text-primary-700 dark:bg-slate-700 dark:text-primary-300">
-            O(m × n × k)
-          </p>
-          <p>
-            Karena itu diperlukan optimasi seperti <b>pre-filtering</b> (mis. hanya kandidat kategori populer yang
-            dihitung penuh) agar sistem tetap efisien saat data berskala jutaan.
-          </p>
-        </>
-      ),
-      kode: [{ judul: 'src/lib/rekomendasi.js', isi: KODE_BIG_O }],
-      playground: <PlaygroundBigO />,
-    },
   }
 
   const aktif = konten[tab]
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-6">
-      <h1 className="mb-1 text-2xl font-extrabold text-slate-800 dark:text-slate-100">
-        🧮 Logika Matematika & Kode Program
-      </h1>
-      <p className="mb-6 text-sm text-slate-500 dark:text-slate-400">
-        Konsep Matematika Diskrit di balik sistem rekomendasi TokoPintar — lengkap dengan teori, kode sumber asli yang
+    <div className="mx-auto max-w-6xl px-4 pb-16 pt-8 md:px-6">
+      <h1 className="mb-1 text-3xl font-extrabold tracking-tight text-white">Himpunan & Barisan</h1>
+      <p className="mb-6 text-sm text-slate-400">
+        Dua konsep Matematika Diskrit di balik sistem rekomendasi TokoPintar — himpunan dan barisan — lengkap dengan teori, kode sumber asli yang
         dipakai sistem, dan simulasi interaktif. (Laporan Rekayasa Ide — Kelompok 4)
       </p>
 
@@ -440,8 +335,8 @@ export default function LogikaMatematika() {
             onClick={() => setTab(t.id)}
             className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${
               tab === t.id
-                ? 'bg-primary-600 text-white shadow'
-                : 'bg-white text-slate-600 shadow-sm hover:bg-slate-50 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700'
+                ? 'grad-aksi text-white shadow-md shadow-accent-500/30'
+                : 'border border-white/10 bg-white/[0.03] text-slate-300 hover:bg-white/[0.08] hover:text-white'
             }`}
           >
             {t.label}
@@ -450,13 +345,13 @@ export default function LogikaMatematika() {
       </div>
 
       {/* Konten tab aktif */}
-      <section className="mb-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-800">
-        <h2 className="mb-3 text-lg font-bold text-slate-800 dark:text-slate-100">{aktif.judul}</h2>
-        <div className="text-sm leading-relaxed text-slate-600 dark:text-slate-300">{aktif.teori}</div>
+      <section className="mb-6 rounded-2xl panel p-6">
+        <h2 className="mb-3 text-lg font-bold text-slate-100">{aktif.judul}</h2>
+        <div className="text-sm leading-relaxed text-slate-300">{aktif.teori}</div>
       </section>
 
       <section className="mb-6 space-y-4">
-        <h2 className="text-sm font-bold uppercase tracking-wide text-slate-400">Kode Program Asli</h2>
+        <h2 className="mb-3 text-xs font-bold uppercase tracking-wide text-slate-500">Kode program asli</h2>
         {aktif.kode.map((k) => (
           <CodeBlock key={k.judul} judul={k.judul} kode={k.isi} />
         ))}

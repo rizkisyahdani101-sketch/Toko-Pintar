@@ -2,7 +2,7 @@ import { useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useApp, formatRupiah } from '../store/AppContext'
 import { PRODUK } from '../lib/dataProduk'
-import { rincianSkor, keHimpunan, irisan, gabungan, jaccard, selisih } from '../lib/rekomendasi'
+import { rincianSkor, keHimpunan, irisan, gabungan, jaccard, overlap, selisih, skalaKecocokan } from '../lib/rekomendasi'
 import KartuProduk from '../components/KartuProduk'
 import FotoProduk from '../components/FotoProduk'
 
@@ -15,8 +15,8 @@ export default function DetailProduk() {
   if (!item) {
     return (
       <div className="mx-auto max-w-3xl px-4 py-20 text-center">
-        <p className="mb-4 text-slate-500">Produk tidak ditemukan.</p>
-        <Link to="/katalog" className="text-primary-600 hover:underline">← Kembali ke katalog</Link>
+        <p className="mb-4 text-slate-400">Produk tidak ditemukan.</p>
+        <Link to="/katalog" className="text-violet-300 hover:underline">← Kembali ke katalog</Link>
       </div>
     )
   }
@@ -29,6 +29,8 @@ export default function DetailProduk() {
 
   const user = { minat: minatArr, ratingSuka: ratingSukaArr }
   const skor = rincianSkor(user, item, kategoriTren)
+  const persen = Math.round(skor.total * 100)
+  const skala = skalaKecocokan(persen)
   const A = keHimpunan(minatArr)
   const B = keHimpunan([item.kategori])
   const irisanAB = irisan(A, B)
@@ -39,33 +41,39 @@ export default function DetailProduk() {
   const diWishlist = wishlist.some((x) => x.id === item.id)
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-6">
-      <Link to="/katalog" className="mb-4 inline-block text-sm text-primary-600 hover:underline">
-        ← Kembali ke Katalog
+    <div className="mx-auto max-w-6xl px-4 pb-16 pt-8 md:px-6">
+      <Link to="/katalog" className="mb-4 inline-flex items-center gap-1 text-sm font-semibold text-violet-300 transition hover:text-violet-200">
+        ← Kembali ke katalog
       </Link>
 
       <div className="grid gap-8 lg:grid-cols-2">
-        {/* Info produk */}
-        <div>
-          <FotoProduk item={item} className="mb-6 h-64 w-full rounded-2xl" />
-          <h1 className="mb-2 text-2xl font-extrabold text-slate-800 dark:text-slate-100">{item.nama}</h1>
-          <p className="mb-4 text-sm text-slate-500 dark:text-slate-400">
-            {item.kategori} · ⭐ {item.rating}/5 · Tag: {item.tags.join(', ')} {item.tren && '· 🔥 Sedang tren'}
+        {/* Foto */}
+        <div className="relative">
+          <FotoProduk item={item} className="h-64 w-full rounded-3xl border border-white/[0.06] shadow-hero" />
+          {item.tren && <span className="badge-hot absolute left-3 top-3">🔥 Sedang tren</span>}
+        </div>
+
+        {/* Info */}
+        <div className="flex flex-col justify-center">
+          <h1 className="mb-2 text-2xl font-extrabold text-white md:text-3xl">{item.nama}</h1>
+          <p className="mb-4 text-sm text-slate-400">
+            {item.kategori} · ⭐ {item.rating}/5 · {item.tags.join(', ')}
           </p>
-          <p className="mb-6 text-3xl font-bold text-primary-600 dark:text-primary-400">{formatRupiah(item.harga)}</p>
+          <p className="mb-6 text-3xl font-extrabold text-white">{formatRupiah(item.harga)}</p>
           <div className="flex gap-3">
             <button
               onClick={() => tambahKeKeranjang(item)}
-              className="flex-1 rounded-xl bg-primary-600 py-3 font-semibold text-white shadow hover:bg-primary-700"
+              className="grad-aksi flex-1 rounded-xl py-3 font-bold text-white shadow-md shadow-accent-500/25 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-accent-500/30"
             >
-              + Tambah ke Keranjang
+              + Tambah ke keranjang
             </button>
             <button
               onClick={() => toggleWishlist(item)}
+              aria-pressed={diWishlist}
               className={`rounded-xl border px-5 py-3 font-semibold transition ${
                 diWishlist
-                  ? 'border-rose-500 bg-rose-500 text-white'
-                  : 'border-slate-300 text-slate-600 hover:border-rose-400 hover:text-rose-500 dark:border-slate-600 dark:text-slate-300'
+                  ? 'border-rose-500 bg-rose-500 text-white shadow-md shadow-rose-500/20'
+                  : 'border-white/10 bg-white/[0.04] text-slate-300 hover:border-rose-400/60 hover:text-rose-300'
               }`}
             >
               {diWishlist ? '♥' : '♡'}
@@ -73,67 +81,67 @@ export default function DetailProduk() {
           </div>
         </div>
 
-        {/* Panel "Kenapa direkomendasikan?" */}
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-800">
-          <h2 className="mb-1 text-lg font-bold text-slate-800 dark:text-slate-100">🧠 Kenapa direkomendasikan?</h2>
-          <p className="mb-4 text-xs text-slate-500 dark:text-slate-400">
-            Semua angka di bawah dihitung langsung oleh <span className="font-mono">src/lib/rekomendasi.js</span>
-          </p>
-
-          {/* Langkah himpunan */}
-          <div className="mb-4 space-y-2 rounded-xl bg-slate-50 p-4 font-mono text-xs text-slate-600 dark:bg-slate-700/50 dark:text-slate-300">
-            <p>A (minatmu) = {'{'}</p>
-            <p className="pl-4">{[...A].join(', ') || '∅'}</p>
-            <p>{'}'}</p>
-            <p>B (kategori item) = {'{'} {item.kategori} {'}'}</p>
-            <p className="text-primary-600 dark:text-primary-400">
-              A ∩ B = {'{'} {[...irisanAB].join(', ') || '∅'} {'}'} → |A∩B| = {irisanAB.size}
-            </p>
-            <p>
-              A ∪ B = {'{'} {[...gabunganAB].join(', ')} {'}'} → |A∪B| = {gabunganAB.size}
-            </p>
-            <p className="font-bold">
-              J(A, B) = {irisanAB.size}/{gabunganAB.size} = {jaccard(A, B).toFixed(2)}
-            </p>
+        {/* Panel skor */}
+        <div className="panel p-6 lg:col-span-2">
+          <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
+            <h2 className="text-lg font-bold text-white">Kenapa produk ini?</h2>
+            <span className="font-mono text-[11px] text-slate-500">dihitung oleh src/lib/rekomendasi.js</span>
           </div>
 
-          {/* Rincian skor sigma */}
-          <h3 className="mb-2 text-sm font-semibold text-slate-700 dark:text-slate-200">
-            Skor total: S(u,i) = Σ wₖ·Jₖ = <span className="text-primary-600 dark:text-primary-400">{skor.total.toFixed(2)}</span>
-          </h3>
-          {[
-            { label: 'Kategori (genre)', w: 0.6, j: skor.detail.jaccardGenre, s: skor.genre },
-            { label: 'Rating', w: 0.3, j: skor.detail.jaccardRating, s: skor.rating },
-            { label: 'Tren', w: 0.1, j: skor.detail.jaccardTren, s: skor.tren },
-          ].map(({ label, w, j, s }) => (
-            <div key={label} className="mb-2">
-              <div className="flex justify-between text-xs text-slate-500 dark:text-slate-400">
-                <span>
-                  {label}: w={w} · J={j.toFixed(2)}
-                </span>
-                <span className="font-semibold">w·J = {s.toFixed(3)}</span>
-              </div>
-              <div className="mt-1 h-2 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-600">
-                <div
-                  className="h-full rounded-full bg-primary-500"
-                  style={{ width: `${Math.min(100, (s / 0.6) * 100)}%` }}
-                />
-              </div>
+          <div className="grid gap-6 md:grid-cols-[1.2fr_0.8fr]">
+            {/* Langkah himpunan */}
+            <div className="rounded-2xl bg-white/[0.03] p-4 font-mono text-xs leading-relaxed text-slate-300">
+              <p>A (minatmu) = {'{'} {[...A].join(', ') || '∅'} {'}'}</p>
+              <p>B (kategori item) = {'{'} {item.kategori} {'}'}</p>
+              <p className="text-violet-300">
+                A ∩ B = {'{'} {[...irisanAB].join(', ') || '∅'} {'}'} → |A∩B| = {irisanAB.size}
+              </p>
+              <p>
+                A ∪ B = {'{'} {[...gabunganAB].join(', ')} {'}'} → |A∪B| = {gabunganAB.size}
+              </p>
+              <p className="font-bold text-white">
+                J(A, B) = {irisanAB.size}/{gabunganAB.size} = {jaccard(A, B).toFixed(2)}
+              </p>
+              <p className="font-bold text-emerald-300">
+                O(A, B) = |A∩B| / min(|A|,|B|) = {overlap(A, B).toFixed(2)} → dasar skor
+              </p>
+              <p className="text-violet-300">
+                S = 0.6·kategori + 0.3·rating + 0.1·tren = {skor.genre.toFixed(2)} + {skor.rating.toFixed(2)} +{' '}
+                {skor.tren.toFixed(2)} = <b className="text-white">{skor.total.toFixed(2)}</b>
+              </p>
             </div>
-          ))}
 
-          {selisihTren.size > 0 && (
-            <p className="mt-4 rounded-lg bg-purple-50 p-2 text-xs text-purple-700 dark:bg-purple-900/30 dark:text-purple-300">
-              ✨ Kategori tren yang belum kamu sukai (B − A): {'{'} {[...selisihTren].join(', ')} {'}'} — produk dari
-              sini disisipkan sebagai diversifikasi di beranda.
-            </p>
-          )}
+            {/* Skala kecocokan */}
+            <div className="flex flex-col justify-between gap-4 rounded-2xl bg-white/[0.03] p-4">
+              <div>
+                <div className="mb-2 flex items-center justify-between">
+                  <span className="text-xs font-semibold text-slate-400">Skor kecocokan</span>
+                  <span className="text-sm font-extrabold text-violet-300">{persen}%</span>
+                </div>
+                <div className="mb-3 h-2.5 overflow-hidden rounded-full bg-white/[0.08]">
+                  <div
+                    className={`h-full rounded-full transition-all duration-700 ${skala.bar}`}
+                    style={{ width: `${Math.min(100, persen)}%` }}
+                  />
+                </div>
+                <span className={`rounded-full px-3 py-1 text-xs font-bold ${skala.warna}`}>{skala.label}</span>
+              </div>
+
+              {selisihTren.size > 0 && (
+                <p className="rounded-xl bg-violet-500/10 p-3 text-xs leading-relaxed text-violet-200">
+                  Kategori tren yang belum kamu sukai (B − A):{' '}
+                  <span className="font-mono font-semibold">{[...selisihTren].join(', ')}</span> — produk dari sini
+                  disisipkan sebagai diversifikasi di beranda.
+                </p>
+              )}
+            </div>
+          </div>
         </div>
       </div>
 
       {serupa.length > 0 && (
-        <section className="mt-10">
-          <h2 className="mb-4 text-lg font-bold text-slate-800 dark:text-slate-100">Produk Serupa</h2>
+        <section className="mt-12">
+          <h2 className="mb-4 text-lg font-bold text-white">Produk serupa</h2>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {serupa.map((x) => (
               <KartuProduk key={x.id} item={x} tampilSkor={false} />

@@ -17,7 +17,7 @@ export const KATEGORI = [
 export const U = KATEGORI
 
 // Rating dipetakan ke "bintang" sebagai himpunan kecocokan kedua
-// (kriteria rating pada notasi sigma: w2 = 0.3)
+// (kriteria rating pada skor gabungan: w2 = 0.3)
 export const SEMUA_RATING = [3, 4, 5]
 
 let idCounter = 1
@@ -70,16 +70,17 @@ export const PRODUK = [
 // A = himpunan minat pengguna (dapat diubah lewat UI)
 // ratingSuka = himpunan rating yang biasa disukai pengguna
 // riwayat = barisan R = (r1, r2, ..., rt) minat per periode/sesi
+//
+// Prinsip "mulai kosong": kunjungan pertama TIDAK punya pilihan awal —
+// minat dan riwayat dikosongkan agar semua skor lahir dari pilihan user
+// sendiri. Nilai tersimpan per perangkat di database (lihat lib/penyimpanan.js)
+// sehingga refresh tidak menghapus apa pun.
 // ------------------------------------------------------------
 export const USER_DEFAULT = {
   nama: 'Pengguna',
-  minat: ['Elektronik', 'Buku'],
+  minat: [],
   ratingSuka: [4, 5],
-  riwayat: [
-    ['Elektronik'],
-    ['Elektronik', 'Buku'],
-    ['Elektronik', 'Buku', 'Olahraga'],
-  ],
+  riwayat: [],
 }
 
 // Himpunan B: kategori yang sedang tren (disimulasikan dari data penjualan)

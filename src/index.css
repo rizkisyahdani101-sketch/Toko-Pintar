@@ -1,3 +1,144 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* ============================================================
+   Custom base styles — TokoPintar Dashboard
+   ============================================================ */
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    /* Desain dark-first: kontrol native browser (popup <select>, scrollbar,
+       autofill) ikut dirender gelap agar isi dropdown tidak putih-di-putih */
+    color-scheme: dark;
+  }
+
+  /* Opsi dropdown <select>: latar gelap eksplisit (lapis kedua setelah
+     color-scheme, untuk browser yang tidak mewarisi skema popup native) */
+  select option {
+    background-color: #141b31; /* ink-800 */
+    color: #e2e8f0;
+  }
+
+  body {
+    @apply bg-ink-900 font-sans text-slate-100 antialiased;
+  }
+
+  /* Fokus keyboard selalu terlihat */
+  :focus-visible {
+    @apply outline-none ring-2 ring-violet-400/70 ring-offset-2 ring-offset-ink-900;
+  }
+
+  /* Hormati preferensi pengguna: matikan animasi non-esensial */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+/* ============================================================
+   Component layer — panel ink, tombol aksi, utilitas animasi
+   ============================================================ */
+
+@layer components {
+  /* Panel gelap standar: membingkai konten tanpa bersaing dengannya */
+  .panel {
+    @apply rounded-2xl border border-white/[0.06] bg-ink-800;
+  }
+
+  /* Kebijakan gradien aksi — SATU pemilik: indigo (accent) → violet (primary).
+     Oranye hanya tersisa di semantik "tren 🔥" (badge-hot) dan band skala
+     kecocokan di lib/rekomendasi.js. */
+  .grad-aksi {
+    @apply bg-gradient-to-r from-accent-500 to-primary-400 hover:from-accent-600 hover:to-primary-500;
+  }
+
+  .btn-primary {
+    @apply grad-aksi inline-flex items-center gap-2 rounded-xl px-6 py-3 text-sm font-bold text-white shadow-lg shadow-accent-500/25 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-accent-500/30 active:translate-y-0;
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-6 py-3 text-sm font-bold text-slate-200 transition-all duration-200 hover:-translate-y-0.5 hover:border-white/25 hover:bg-white/[0.08] hover:text-white;
+  }
+
+  .section-label {
+    @apply text-xs font-bold uppercase tracking-[0.2em];
+  }
+
+  .section-title {
+    @apply text-3xl font-black leading-tight md:text-4xl lg:text-5xl;
+  }
+
+  .card-hover {
+    @apply transition-all duration-300 hover:-translate-y-1 hover:border-white/[0.14] hover:shadow-glow;
+  }
+
+  .badge-hot {
+    @apply rounded-full bg-gradient-to-r from-amber-400 to-orange-500 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-amber-950 shadow-sm;
+  }
+
+  .badge-new {
+    @apply rounded-full bg-gradient-to-r from-violet-500 to-accent-500 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-white shadow-sm;
+  }
+
+  .progress-bar {
+    @apply h-2 overflow-hidden rounded-full bg-white/[0.08];
+  }
+
+  /* Bentuk + gerak saja — warna diisi kelas band dari SKALA_KECOCKAN
+     (skala.bar) agar skala kecocokan tetap semantik. */
+  .progress-fill {
+    @apply h-full rounded-full transition-all duration-700 ease-out;
+  }
+
+  .glass-input {
+    @apply w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-slate-100 outline-none transition placeholder:text-slate-500 focus:border-violet-400/60 focus:ring-2 focus:ring-violet-400/20;
+  }
+}
+
+/* ---------- Utilitas animasi (dipicu .is-mounted di #root) ----------
+   Orkestrasi page-load: naik + fade, jeda per elemen via --stagger.
+   Tanpa .is-mounted elemen tetap terlihat (fallback tanpa JS). */
+@keyframes naik {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.anim-naik {
+  opacity: 0;
+}
+
+.is-mounted .anim-naik {
+  animation: naik 0.55s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  animation-delay: var(--stagger, 0ms);
+}
+
+@keyframes tumbuh {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+.anim-tumbuh {
+  transform-origin: left;
+}
+
+.is-mounted .anim-tumbuh {
+  animation: tumbuh 0.9s cubic-bezier(0.22, 1, 0.36, 1) 0.5s backwards;
+}
